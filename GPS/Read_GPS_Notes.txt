@@ -1,0 +1,84 @@
+**************************************Reading raw serial data Ultimate GPS*******************************************************
+1. Attach shifter shield to odroid at 3.3V using screws.
+2. Connect pins as follow 
+	
+	GPS	Odroid/Power Supply
+
+	GND (none)  ->	Ground(shifter shield)
+	VIN (blue)  ->	5V(shifter shield)
+	RX  (peach) ->	GPA0.1(shifter shield)
+	TX  (green) ->	GPA0.0(shifter shield)
+	PPS (white) ->  GPX2.7(shifter shield #31)
+
+	*Make sure to connect Odroid gnd to power supply gnd if using power supply instead!
+
+3. Lets start by just reading the 'raw' data from the GPS on the command line. Run:
+
+	$ stty -F /dev/ttyACM99 raw 9600 cs8 clocal -cstopb
+
+To set /dev/ttyACM99 to raw data (raw) 9600 baud (9600) 8-bits (cs8) no modem control (-clocal) and 1 stop bit (cstopb)
+
+
+4. Run
+
+	$ cat /dev/ttyACM99
+
+5. To get the data nicely sorted using gpsmon run.  (See below on how to install and read serial using gpsd.)
+
+	$ gpsmon /dev/ttyACM99	
+
+
+*************************************Read Ultimate GPS serial data using GPSD*********************************************
+
+1.  Connect Ultimate GPS to power supply/Odroid via shifter shield :
+	GPS	->	Odroid/PSU
+	GND	->	Ground	
+	RX	->	GPA0.1
+	TX	->	GPA0.0
+	VIN	->	5V
+	PPS	->	GPX2.7
+
+2. Install gpsd:
+
+	$ sudo apt-get install gpsd gpsd-clients python-gps
+
+3.  Change gpsd settings.  Open file using $ sudo nano /etc/default/gpsd
+and change file as follows.
+
+----------------------------------------------------------------------------------
+# Default settings for the gpsd init script and the hotplug wrapper.
+
+# Start the gpsd daemon automatically at boot time
+START_DAEMON="true"
+
+# Use USB hotplugging to add new USB devices automatically to the daemon
+USBAUTO="true"
+
+# Devices gpsd should collect to at boot time.
+# They need to be read/writeable, either by user gpsd or the group dialout.
+DEVICES=""
+
+# Other options you want to pass to gpsd
+GPSD_OPTIONS="/dev/ttyACM99"
+GPSD_SOCKET="/var/run/gpsd.sock"
+-----------------------------------------------------------------------------------
+
+4. Reboot computer.  Run cgps -s and there should be a fix after a few moments.
+If doesn't work check the links under sources.
+
+
+
+Source
+https://learn.adafruit.com/adafruit-ultimate-gps-hat-for-raspberry-pi/use-gpsd
+http://stackoverflow.com/questions/33179816/gps-daemon-gpsd-on-raspberrypi-claims-no-fix/34967951#34967951
+https://learn.adafruit.com/adafruit-ultimate-gps-hat-for-raspberry-pi/basic-test
+
+
+
+
+Misc Notes:
+
+/etc/default/gpsd
+
+gpsd setting?
+	
