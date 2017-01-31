@@ -38,8 +38,8 @@ float longitude = 0;
 float altitude = 0;
 
 int gpio = 31; //<---- set pps pin here
-uint32_t gps_data_interval = 60;  //<---- set how often to save average long/lat/alt here in sec
-uint32_t update_time_interval = 120; //<--- set how often to update system time using pps here in sec
+uint32_t gps_data_interval = 10;  //<---- set how often to save average long/lat/alt here in sec
+uint32_t update_time_interval = 40; //<--- set how often to update system time using pps here in sec
 
 //function headers
 int save_average();
@@ -149,7 +149,7 @@ int main() {
                current = time(NULL);
                elapsed = current - serial_interval_start;
 					if (elapsed >= gps_data_interval){
-						printf("*****%d seconds passed********\n", elapsed);
+						printf("*****%d seconds passed******** saving average!\n", elapsed);
 						serial_interval_start = current;
 						save_average();
                   continue;
@@ -259,6 +259,11 @@ int save_average(){
 
 	FILE *fp;
 	fp = fopen("test.txt", "a+");
+	fprintf(fp, "Long: %f, Latitude: %f, Altitude: %f, Data Count: %d.\n", avg_lat, avg_long, avg_alt, data_count);
+	//fputs("This is testing for fputs...\n", fp);
+	fclose(fp);
+
+	fp = fopen("overall_average.txt", "w");
 	fprintf(fp, "Long: %f, Latitude: %f, Altitude: %f, Data Count: %d.\n", avg_lat, avg_long, avg_alt, data_count);
 	//fputs("This is testing for fputs...\n", fp);
 	fclose(fp);
