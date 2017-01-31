@@ -1,0 +1,34 @@
+*********************************************************************************************************************************************
+************************************************How to Read PPS As Interrupts on Odroid******************************************************
+*********************************************************************************************************************************************
+
+1. Attach shifter shield to odroid at 3.3V using screws.
+
+2. Connect pins as follow 
+
+	GPS	Odroid/Power Supply
+
+	GND ->	Ground(powersupply)
+	VIN ->	5V(powersupply)
+	RX  ->	~
+	TX  ->	~
+	PPS ->  GPX2.7(shifter shield) *Does not have to be this pin
+
+3. Download wiringPi for Odroid and install it.
+	$ git clone https://github.com/hardkernel/wiringPi
+	$ cd wiringPi
+	$ ./build
+
+If you type $ gpio -v it should tell you odroid-xu3/xu4
+
+4. Download example code from XU4 wiki at 
+http://odroid.com/dokuwiki/doku.php?id=en:xu3_hardware_irq
+
+5. cd into the directory of the source code.  Compile and run the code with 
+	$ gcc gpio_irq.c -o gpio_irq
+	$ sudo ./gpio_irq 31
+You should be able to see pps output printing to screen.
+
+6. When you exit program make sure you unexport the pin before running program again.
+	$ sudo -i
+	$ echo 31 > /sys/class/gpio/unexport
