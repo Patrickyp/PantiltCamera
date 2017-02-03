@@ -26,22 +26,27 @@ stepValues = [30,60,120] # Step increments for move command on GUI
 step = stepValues[1] # Default stepValue
 running = False # This value is set to False when user clicks Stop, will quit Run loop
 
+lsi = 0
+rsi = 1
+wvi = 2
+
 # Set webcam index here
-vs = WebcamVideoStream(src=0).start()
-vs1 = WebcamVideoStream(src=1).start()
-#vs2 = WebcamVideoStream(src=2).start()
+vs = WebcamVideoStream(src=lsi)#.start()
+vs1 = WebcamVideoStream(src=rsi)#.start() # Note that this stream will never be stopped.
+vs2 = None
+#vs2 = WebcamVideoStream(src=2)#.start()
 
 # Initialize video writer objects.
 out = None
 out1 = None
-#out2 = None
+out2 = None
 
 # Keep track of which camera is currently being displayed.
 # This variable is updated whenever a new camera is selected via radio button.
 currentCamera = vs
 
 # Keep track of whether to record frames from cameras
-recordStatus = 0
+recordStatus = False
 
 
 class PanTiltApp(QtGui.QDialog, ui.Ui_Dialog):
@@ -54,7 +59,9 @@ class PanTiltApp(QtGui.QDialog, ui.Ui_Dialog):
         super(self.__class__, self).__init__()
         self.setupUi(self)  # This is defined in design.py file automatically
                             # It sets up layout and widgets that are defined
-                            
+        vs.start()
+	vs1.start()
+
         # Define the methods called when a button is pressed
         self.Run.clicked.connect(self.run_gui)
         self.Stop.clicked.connect(self.stop_gui)
@@ -87,34 +94,40 @@ class PanTiltApp(QtGui.QDialog, ui.Ui_Dialog):
 
         # Start a QTimer to constantly show camera feed on GUI.  
         self._timer = QtCore.QTimer(self)
-        self._timer.timeout.connect(self.play)
+        self._timer.timeout.connect(self.showLiveFeed)
         self._timer.start(10) # call play every 10 msec
     
     # This function is called by QTimer above to display a frame on GUI every set interval.  Also reads a frame from all 3 cameras and save them
     # if the save video box is selected.
-    def play(self):
+    def showLiveFeed(self):
         ###################################################################################################
         global recordStatus
-        global out,out1#,out2
+        global out,out1,out2
 
-        # If saveVideo function set recordStatus to 1, start saving frames.
-        if recordStatus == 1:
+        # If saveVideo function set recordStatus to True, start saving frames.
+        if recordStatus == True:
             totalTime = time.time() - self.videoStartTime
             if totalTime > 60:
                 print totalTime
                 print "1 minute up!"
-                recordStatus = 0
+                recordStatus = False
                 self.SaveVideo.setCheckState(Qt.Unchecked)
             else:
                 frame ,_ = vs.read()
                 frame1 ,_ = vs1.read()
                 #frame2 ,_ = vs2.read()
+		while ((out == None) or (out1 == None)):
+			x = 1
+		
                 out.write(frame)
-                out1.write(frame1)
+                out1.write(frame1) 
                 #out2.write(frame2)
         ####################################################################################################
         global currentCamera
         
+	while (currentCamera == None):
+		x = 1
+		print "Current Camera is None"
         # Tell the camera thread to send back a frame converted into a QPixmap. 
         frame = currentCamera.convertFrame()
         
@@ -131,21 +144,21 @@ class PanTiltApp(QtGui.QDialog, ui.Ui_Dialog):
         global recordStatus
         global out, out1#, out2
         # Box was selected before selection, user wants to stop recording.
-        if recordStatus == 1:
+        if recordStatus == True:
             print "finish recording!"
-            recordStatus = 0
+            recordStatus = False
         # Box was unselected before selection, user wants to start recording.
         else:
             self.videoStartTime = time.time()
             print"start timer!"
             # set recordStatus to 1 so that QTimer function above can start saving frames.
-            recordStatus = 1
+            recordStatus = True
             
             # Create file name for the 3 videos
             name1 = "videos/" + getTime() + "cam1.avi"
             name2 = "videos/" + getTime() + "cam2.avi"
             #name3 = "videos/" + getTime() + "cam3.avi"
-            
+            print "Creating videowriter object!"
             # initialize VideoWriter objects with file name.
             out = cv2.VideoWriter(name1,cv2.cv.CV_FOURCC('M','J','P','G'), 20.0, (1920,1080))
             out1 = cv2.VideoWriter(name2,cv2.cv.CV_FOURCC('M','J','P','G'), 20.0, (1920,1080))
@@ -155,17 +168,20 @@ class PanTiltApp(QtGui.QDialog, ui.Ui_Dialog):
     # Show camera1 feed on GUI
     def showWideView(self):
         global currentCamera
-        currentCamera = vs
+	self.initializeWideCamera()
+        currentCamera = vs2
         
     # Show camera2 feed on GUI   
     def showLeftView(self):
         global currentCamera
-        currentCamera = vs1
+	self.initializeLeftStereoCamera()
+        currentCamera = vs
     
     # Show camera3 feed on GUI
     def showRightView(self):
         global currentCamera
-        #currentCamera = vs2
+	#self.initializeLeftStereoCamera()
+        currentCamera = vs1
         
     # Take 3 images for each camera (9 total).
     def takeImageSet(self):
@@ -232,6 +248,7 @@ class PanTiltApp(QtGui.QDialog, ui.Ui_Dialog):
     # Start the run routine.  
     def run_gui(self):
         global running
+
         updateStatus(self,"Starting run...")
         # Flush serial port buffer.
         ser.flushInput()
@@ -306,12 +323,20 @@ class PanTiltApp(QtGui.QDialog, ui.Ui_Dialog):
         result = ser.readline()
         print result
         
-    def checkStop(self):
-        app.processEvents()
-        if (running == False):
-            print "stopped!"
-            updateStatus(self,"Idle")
-            return
+    def initializeLeftStereoCamera(self):
+	global vs, vs1, vs2
+	if (vs2 != None):
+		vs2.stop()
+		vs2 = None
+		vs = WebcamVideoStream(src=lsi).start()
+    
+    def initializeWideCamera(self):
+	global vs, vs1, vs2
+	if (vs != None):
+		vs.stop()
+		vs = None
+		vs2 = WebcamVideoStream(src=wvi).start()
+		
 # Enable or disable button during run because we don't want users to issue commands like Move Right while motor is doing its run routine.
 # buttonState should be either True (to enable) or False (to disable).
 def buttonEnabledState(self,buttonState):
@@ -421,12 +446,7 @@ def takeImages(self,az,zen,isCalib,imagePerCamera):
 #             
             fps.update()
     
-    t1 = time.time()
-   
-    total = t1-t0
-    print "TIME: ", total
-    #print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-    #print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+    
     
     for i in range(0,imagePerCamera*2):
         cv2.imwrite(fileNames[i],frames[i]) 
@@ -475,14 +495,27 @@ def convertImage(frame):
 
 # Do some clean up when gui exits.
 def exitFunction():
-    vs.stop()
-    vs1.stop()
-    #vs2.stop()
+    global vs,vs1,vs2,out,out1,out2
+
+    if(vs != None):
+	print "releasing vs"
+    	vs.stop()
+    if(vs1 != None):
+   	print "releasing vs1"
+    	vs1.stop()
+    if(vs2 != None):
+	print "releasing vs2"
+    	vs2.stop()
     
     if out != None:
+	print "releasing out"
         out.release()
+    if out1 != None:
+	print "releasing out1"
         out1.release()
-        #out2.release()
+    if out2 != None:
+	print "releasing out2"
+        out2.release()
     print "exiting..."
 
 #******************************************************** Main method here ******************************************************************
